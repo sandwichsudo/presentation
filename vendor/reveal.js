@@ -25,6 +25,9 @@
 
 	var Reveal;
 
+	// The reveal.js version
+	var VERSION = '3.2.0';
+
 	var SLIDES_SELECTOR = '.slides section',
 		HORIZONTAL_SLIDES_SELECTOR = '.slides>section',
 		VERTICAL_SLIDES_SELECTOR = '.slides>section.present>section',
@@ -102,6 +105,9 @@
 
 			// Stop auto-sliding after user input
 			autoSlideStoppable: true,
+
+			// Use this method for navigation when auto-sliding (defaults to navigateNext)
+			autoSlideMethod: null,
 
 			// Enable slide navigation via mouse wheel
 			mouseWheel: false,
@@ -2722,8 +2728,20 @@
 			// Start video playback
 			var currentVideo = currentBackground.querySelector( 'video' );
 			if( currentVideo ) {
-				if( currentVideo.currentTime > 0 ) currentVideo.currentTime = 0;
-				currentVideo.play();
+
+				var startVideo = function() {
+					currentVideo.currentTime = 0;
+					currentVideo.play();
+					currentVideo.removeEventListener( 'loadeddata', startVideo );
+				};
+
+				if( currentVideo.readyState > 1 ) {
+					startVideo();
+				}
+				else {
+					currentVideo.addEventListener( 'loadeddata', startVideo );
+				}
+
 			}
 
 			var backgroundImageURL = currentBackground.style.backgroundImage || '';
@@ -2870,6 +2888,7 @@
 				var backgroundImage = slide.getAttribute( 'data-background-image' ),
 					backgroundVideo = slide.getAttribute( 'data-background-video' ),
 					backgroundVideoLoop = slide.hasAttribute( 'data-background-video-loop' ),
+					backgroundVideoMuted = slide.hasAttribute( 'data-background-video-muted' ),
 					backgroundIframe = slide.getAttribute( 'data-background-iframe' );
 
 				// Images
@@ -2882,6 +2901,10 @@
 
 					if( backgroundVideoLoop ) {
 						video.setAttribute( 'loop', '' );
+					}
+
+					if( backgroundVideoMuted ) {
+						video.muted = true;
 					}
 
 					// Support comma separated lists of video sources
@@ -3688,7 +3711,10 @@
 			// - The overview isn't active
 			// - The presentation isn't over
 			if( autoSlide && !autoSlidePaused && !isPaused() && !isOverview() && ( !Reveal.isLastSlide() || availableFragments().next || config.loop === true ) ) {
-				autoSlideTimeout = setTimeout( navigateNext, autoSlide );
+				autoSlideTimeout = setTimeout( function() {
+					typeof config.autoSlideMethod === 'function' ? config.autoSlideMethod() : navigateNext();
+					cueAutoSlide();
+				}, autoSlide );
 				autoSlideStartTime = Date.now();
 			}
 
@@ -3833,10 +3859,6 @@
 				navigateRight();
 			}
 		}
-
-		// If auto-sliding is enabled we need to cue up
-		// another timeout
-		cueAutoSlide();
 
 	}
 
@@ -4364,8 +4386,9 @@
 	function Playback( container, progressCheck ) {
 
 		// Cosmetics
-		this.diameter = 50;
-		this.thickness = 3;
+		this.diameter = 100;
+		this.diameter2 = this.diameter/2;
+		this.thickness = 6;
 
 		// Flags if we are currently playing
 		this.playing = false;
@@ -4383,6 +4406,8 @@
 		this.canvas.className = 'playback';
 		this.canvas.width = this.diameter;
 		this.canvas.height = this.diameter;
+		this.canvas.style.width = this.diameter2 + 'px';
+		this.canvas.style.height = this.diameter2 + 'px';
 		this.context = this.canvas.getContext( '2d' );
 
 		this.container.appendChild( this.canvas );
@@ -4433,10 +4458,10 @@
 	Playback.prototype.render = function() {
 
 		var progress = this.playing ? this.progress : 0,
-			radius = ( this.diameter / 2 ) - this.thickness,
-			x = this.diameter / 2,
-			y = this.diameter / 2,
-			iconSize = 14;
+			radius = ( this.diameter2 ) - this.thickness,
+			x = this.diameter2,
+			y = this.diameter2,
+			iconSize = 28;
 
 		// Ease towards 1
 		this.progressOffset += ( 1 - this.progressOffset ) * 0.1;
@@ -4449,7 +4474,7 @@
 
 		// Solid background color
 		this.context.beginPath();
-		this.context.arc( x, y, radius + 2, 0, Math.PI * 2, false );
+		this.context.arc( x, y, radius + 4, 0, Math.PI * 2, false );
 		this.context.fillStyle = 'rgba( 0, 0, 0, 0.4 )';
 		this.context.fill();
 
@@ -4474,14 +4499,14 @@
 		// Draw play/pause icons
 		if( this.playing ) {
 			this.context.fillStyle = '#fff';
-			this.context.fillRect( 0, 0, iconSize / 2 - 2, iconSize );
-			this.context.fillRect( iconSize / 2 + 2, 0, iconSize / 2 - 2, iconSize );
+			this.context.fillRect( 0, 0, iconSize / 2 - 4, iconSize );
+			this.context.fillRect( iconSize / 2 + 4, 0, iconSize / 2 - 4, iconSize );
 		}
 		else {
 			this.context.beginPath();
-			this.context.translate( 2, 0 );
+			this.context.translate( 4, 0 );
 			this.context.moveTo( 0, 0 );
-			this.context.lineTo( iconSize - 2, iconSize / 2 );
+			this.context.lineTo( iconSize - 4, iconSize / 2 );
 			this.context.lineTo( 0, iconSize );
 			this.context.fillStyle = '#fff';
 			this.context.fill();
@@ -4516,6 +4541,8 @@
 
 
 	Reveal = {
+		VERSION: VERSION,
+
 		initialize: initialize,
 		configure: configure,
 		sync: sync,
@@ -4669,6 +4696,11 @@
 		// Programatically triggers a keyboard event
 		triggerKey: function( keyCode ) {
 			onDocumentKeyDown( { keyCode: keyCode } );
+		},
+
+		// Registers a new shortcut to include in the help overlay
+		registerKeyboardShortcut: function( key, value ) {
+			keyboardShortcuts[key] = value;
 		}
 	};
 

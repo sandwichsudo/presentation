@@ -9,14 +9,28 @@ var webserver = require('gulp-webserver');
 var SERVER_PORT = 31415;
 var sassPath = "./src/scss";
 var sassWatchPath = sassPath+'/**/*.scss';
-var jsPaths = ['./src/js/*.js',];
+var jsWatchPath = './src/js/*.js';
 var outputBaseDirectory = "./build/";
 var cssPath = outputBaseDirectory+"styles";
 var jsoutput = outputBaseDirectory+"js";
+var vendorPath = "./vendor/*.*";
+var imagePath = "./images/*.*";
+var imageoutputPath = outputBaseDirectory+"images";
+var vendoroutputPath = outputBaseDirectory+"vendor";
 
 gulp.task('movejs', function() {
-  gulp.src(jsPaths)
+  gulp.src(jsWatchPath)
     .pipe(gulp.dest(jsoutput));
+});
+
+gulp.task('movevendor', function() {
+  gulp.src(vendorPath)
+    .pipe(gulp.dest(vendoroutputPath));
+});
+
+gulp.task('moveimages', function() {
+  gulp.src(imagePath)
+    .pipe(gulp.dest(imageoutputPath));
 });
 
 gulp.task('webserver', function() {
@@ -41,10 +55,11 @@ gulp.task('compass', function () {
 });
 
 
-gulp.task('compile', ['compass','movejs']);
+gulp.task('compile', ['compass','movejs','movevendor','moveimages']);
 
 gulp.task('watch', function () {
     gulp.watch(sassWatchPath, ['compass']);
+    gulp.watch(jsWatchPath, ['movejs']);
 });
 
-gulp.task('default', ['webserver','watch']);
+gulp.task('default', ['webserver','compile','watch']);
